@@ -1,0 +1,39 @@
+
+import numpy as np
+from scipy.integrate import quad
+
+# Herschel–Bulkley function
+def HB(gamma_dot, tau0, k, n):
+    return tau0 + k * (gamma_dot**n)
+
+# Parameters for your two fits
+# Replace these with your values
+tau0_up, k_up, n_up = 19.15355293,  6.99567829,  0.75880007
+tau0_down, k_down, n_down = 12.32877538, 10.62025291,  0.69889887
+
+# Define area integrand
+def diff(gamma_dot):
+    return HB(gamma_dot, tau0_up, k_up, n_up) - HB(gamma_dot, tau0_down, k_down, n_down)
+
+# Integration limits
+gmin = 0.0001
+gmax = 1000
+
+
+
+# Perform integration
+area, error = quad(diff, gmin, gmax)
+
+print("Area between curves:", area)
+print("Integration error:", error)
+
+
+# Save results + the entire code
+import inspect
+import sys
+with open("THX_results.txt", "w") as f:
+    f.write("# ===== RESULTS =====\n")
+    f.write(f"Area: {area}\n")
+    f.write(f"Error: {error}\n")
+
+print("save to THX_results.txt")

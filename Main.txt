@@ -1,0 +1,90 @@
+
+import numpy as np
+import pandas as pd
+from scipy.optimize import curve_fit
+import math
+
+
+df = pd.read_csv("RhoFile.csv")
+
+g = df["g"].values
+tau = df["tau"].values
+eta = df["eta"].values
+
+# Models
+
+def newtonian(g, mu):
+    return mu * g
+
+def powerlaw(g, K, n):
+    return K * g**n
+
+def bingham(g, tau0, mup):
+    return tau0 + mup * g
+
+def herschel_bulkley(g, tau0, K, n):
+    return tau0 + K * g**n
+
+def casson(g, tau0, etp):
+    return ( (tau0**0.5 + (etp*g)**0.5 ) )**2
+
+# Carreau stress form
+def carreau(g, eta0, etainf, lam, a, n):
+    shear_visc = etainf + (eta0 - etainf)*(1 + (lam*g)**a )**((n-1)/a)
+    return shear_visc * g
+
+fits = {}
+
+def fit_model(name, func, p0, bounds):
+    try:
+        popt, pcov = curve_fit(func, g, tau, p0=p0, bounds=bounds, maxfev=20000)
+        pred = func(g, *popt)
+        rmse = np.sqrt(np.mean((tau - pred)**2))
+        k = len(popt)
+        npts = len(tau)
+        aic = npts * np.log(np.mean((tau - pred)**2)) + 2*k
+        bic = npts * np.log(np.mean((tau - pred)**2)) + k*np.log(npts)
+        fits[name] = {"params": popt, "RMSE": rmse, "AIC": aic, "BIC": bic}
+    except:
+        fits[name] = {"params": None, "RMSE": np.inf, "AIC": np.inf, "BIC": np.inf}
+
+# Fit all models
+fit_model("Newtonian", newtonian,
+          [np.mean(eta)],
+          ([0], [1e6]))
+
+fit_model("Power-law", powerlaw,
+          [1, 1],
+          ([0, 0], [1e6, 5]))
+
+fit_model("Bingham", bingham,
+          [1, np.mean(eta)],
+          ([0, 0], [1e6, 1e6]))
+
+fit_model("Herschel–Bulkley", herschel_bulkley,
+          [1, 1, 1],
+          ([0, 0, 0], [1e6, 1e6, 5]))
+
+fit_model("Casson", casson,
+          [1, 1],
+          ([0, 0], [1e6, 1e6]))
+
+fit_model("Carreau", carreau, 
+            p0=[np.max(eta), np.min(eta), 1, 0.5, 2],
+            bounds=([0, 0, 1e-6, 0, 0.1], [1e10, 1e10, 1e10, 10, 1000]))
+
+output=[]
+for k,v in fits.items():
+    line=f"{k}={v}"
+    print(line)
+    output.append(line)
+
+
+
+# Save results + the entire code
+import inspect
+import sys
+with open("fit_results.txt", "w") as f:
+    f.write("# ===== RESULTS =====\n")
+    f.write("\n".join(output))
+    
